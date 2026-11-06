@@ -24,9 +24,9 @@ public class Retry {
         JobInfo job = new JobInfo.Builder(JOB_ID, svc)
                 .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
                 .setPersisted(true)              // survive reboot (needs RECEIVE_BOOT_COMPLETED)
-                .setBackoffCriteria(JobInfo.BACKOFF_POLICY_EXPONENTIAL, 30_000L)
-                .setMinimumLatency(2_000L)
-                .setOverrideDeadline(15 * 60_000L)
+                .setBackoffCriteria(JobInfo.BACKOFF_POLICY_EXPONENTIAL, 30_000)
+                .setMinimumLatency(2_000)
+                .setOverrideDeadline(15 * 60_000)
                 .build();
         try {
             js.schedule(job);
