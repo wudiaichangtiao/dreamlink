@@ -17,12 +17,33 @@ jobs:
           java-version: '17'
 
       # ubuntu-latest ships a preinstalled Android SDK (ANDROID_HOME set,
-      # licenses already accepted, sdkmanager on PATH). We deliberately do NOT
-      # use android-actions/setup-android: it downloads cmdline-tools from the
-      # GitHub API and intermittently fails with 403 on anonymous rate limits.
-      - name: Ensure platform + build-tools 34 (downloaded from Google, not rate-limited)
+      # licenses already accepted). sdkmanager is NOT on PATH, so we locate it
+      # explicitly. This step is best-effort and must never fail the build:
+      # AGP 8.1.4 auto-downloads any missing platform/build-tools during the
+      # Gradle build (licenses are pre-accepted on the runner).
+      - name: Prepare Android SDK (best-effort)
         run: |
-          sdkmanager --install "platforms;android-34" "build-tools;34.0.0"
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+          SDK_DIR="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          if [ -n "$SDK_DIR" ]; then
+            echo "sdk.dir=$SDK_DIR" > android/local.properties
+          fi
+          SDKMGR="$(command -v sdkmanager || true)"
+          if [ -z "$SDKMGR" ] && [ -n "$SDK_DIR" ]; then
+            for c in "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" \
+                     "$SDK_DIR/cmdline-tools/bin/sdkmanager"; do
+              [ -x "$c" ] && SDKMGR="$c" && break
+            done
+          fi
+          if [ -n "$SDKMGR" ]; then
+            echo "using sdkmanager: $SDKMGR"
+            yes | "$SDKMGR" --licenses >/dev/null 2>&1 || true
+            "$SDKMGR" --install "platforms;android-34" "build-tools;34.0.0" || true
+          else
+            echo "sdkmanager not found; relying on AGP auto-download"
+          fi
+          true
 
       - uses: gradle/actions/setup-gradle@v3
         with:
