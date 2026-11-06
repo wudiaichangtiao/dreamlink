@@ -16,12 +16,13 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - uses: android-actions/setup-android@v3
-
-      - run: yes | sdkmanager --licenses || true
-
-      - run: |
-          sdkmanager "platforms;android-34" "build-tools;34.0.0"
+      # ubuntu-latest ships a preinstalled Android SDK (ANDROID_HOME set,
+      # licenses already accepted, sdkmanager on PATH). We deliberately do NOT
+      # use android-actions/setup-android: it downloads cmdline-tools from the
+      # GitHub API and intermittently fails with 403 on anonymous rate limits.
+      - name: Ensure platform + build-tools 34 (downloaded from Google, not rate-limited)
+        run: |
+          sdkmanager --install "platforms;android-34" "build-tools;34.0.0"
 
       - uses: gradle/actions/setup-gradle@v3
         with:
@@ -29,7 +30,7 @@ jobs:
 
       - name: Assemble debug APK
         working-directory: ./android
-        run: gradle assembleDebug
+        run: gradle assembleDebug --no-daemon --stacktrace
 
       - uses: actions/upload-artifact@v4
         with:
