@@ -1,0 +1,11 @@
+{
+  "owner": "你的Gitee用户名",
+  "repo": "你的私有仓库名",
+  "branch": "master",
+  "file": "dreamlink/links.json",
+  "token": "你的Gitee私人令牌(勾选projects权限)",
+  "poll_seconds": 120,
+  "api_host": "127.0.0.1",
+  "api_port": 8756,
+  "api_token": ""
+}
