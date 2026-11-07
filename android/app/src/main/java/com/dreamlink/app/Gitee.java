@@ -61,11 +61,16 @@ public class Gitee {
         if (r.isNotFound()) return null;
         if (r.isAuthFail()) throw new AuthException("Gitee " + r.code + "：令牌无效或无仓库权限");
         if (!r.is2xx()) throw new java.io.IOException("读取失败 HTTP " + r.code);
+        String body = r.body == null ? "" : r.body.trim();
+        // Gitee returns HTTP 200 + an empty JSON ARRAY (e.g. "[]") for a path
+        // that does not exist yet (a not-yet-created file, or a directory).
+        // Treat any array response as "file absent" => null sha => PUT will create it.
+        if (body.startsWith("[")) return null;
         try {
-            JSONObject o = new JSONObject(r.body);
-            return o.getString("sha");
+            JSONObject o = new JSONObject(body);
+            return o.optString("sha", null);
         } catch (org.json.JSONException e) {
-            throw new java.io.IOException("响应解析失败");
+            throw new java.io.IOException("响应解析失败: " + body.substring(0, Math.min(120, body.length())));
         }
     }
 
