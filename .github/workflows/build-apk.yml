@@ -25,10 +25,12 @@ jobs:
         run: |
           echo "ANDROID_HOME=$ANDROID_HOME"
           echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+          # make sure AGP can find the SDK
           SDK_DIR="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
           if [ -n "$SDK_DIR" ]; then
             echo "sdk.dir=$SDK_DIR" > android/local.properties
           fi
+          # try to pre-install 34 components if we can find sdkmanager
           SDKMGR="$(command -v sdkmanager || true)"
           if [ -z "$SDKMGR" ] && [ -n "$SDK_DIR" ]; then
             for c in "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" \
@@ -51,6 +53,10 @@ jobs:
 
       - name: Assemble debug APK
         working-directory: ./android
+        env:
+          # Injected from the repo secret GITEE_TOKEN; build.gradle bakes it
+          # into BuildConfig.DREAMLINK_TOKEN. Never committed to git.
+          DREAMLINK_GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
         run: gradle assembleDebug --no-daemon --stacktrace
 
       - uses: actions/upload-artifact@v4
