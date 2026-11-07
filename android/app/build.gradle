@@ -12,6 +12,19 @@ android {
         targetSdk 34
         versionCode 1
         versionName "1.0"
+
+        // Non-secret defaults baked in so the app is zero-config out of the box.
+        buildConfigField "String", "DREAMLINK_OWNER", '"wudiaichangtiao"'
+        buildConfigField "String", "DREAMLINK_REPO", '"dreamlink"'
+        buildConfigField "String", "DREAMLINK_FILE", '"dreamlink/links.json"'
+        // The Gitee token is NOT committed. Cloud build injects it from the
+        // repo secret GITEE_TOKEN via this env var; local/dev builds get "".
+        buildConfigField "String", "DREAMLINK_TOKEN",
+                '"' + (System.getenv("DREAMLINK_GITEE_TOKEN") ?: "") + '"'
+    }
+
+    buildFeatures {
+        buildConfig true
     }
 
     buildTypes {
