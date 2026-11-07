@@ -29,11 +29,21 @@ public class ShareReceiverActivity extends Activity {
         }
 
         String source = resolveSource(in);
+        String url = extractUrl(text);
         Db db = new Db(this);
+        boolean duplicate;
         try {
-            db.insert(extractUrl(text), subject, source, text, System.currentTimeMillis());
+            duplicate = db.urlExists(url);   // dedupe: same URL saved once only
+            if (!duplicate) {
+                db.insert(url, subject, source, text, System.currentTimeMillis());
+            }
         } finally {
             db.close();
+        }
+        if (duplicate) {
+            Toast.makeText(this, R.string.err_duplicate, Toast.LENGTH_SHORT).show();
+            finish();
+            return;
         }
 
         // Start the foreground uploader (Android 8 rule: startForegroundService).
