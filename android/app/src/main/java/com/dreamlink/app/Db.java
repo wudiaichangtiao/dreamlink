@@ -64,6 +64,19 @@ public class Db extends SQLiteOpenHelper {
         return getWritableDatabase().insert(T, null, v);
     }
 
+    /** Dedupe guard: true if this exact URL was already saved once. */
+    public boolean urlExists(String url) {
+        if (url == null) return false;
+        Cursor c = getReadableDatabase().rawQuery(
+                "SELECT 1 FROM " + T + " WHERE " + C_URL + "=? LIMIT 1",
+                new String[]{url});
+        try {
+            return c.moveToFirst();
+        } finally {
+            c.close();
+        }
+    }
+
     public List<Link> all(int limit) {
         List<Link> out = new ArrayList<>();
         Cursor c = getReadableDatabase().query(T, null, null, null, null, null,
@@ -160,6 +173,69 @@ public class Db extends SQLiteOpenHelper {
         l.syncedAt = c.getLong(c.getColumnIndexOrThrow(C_SYNCED));
         l.syncStatus = c.getInt(c.getColumnIndexOrThrow(C_STATUS));
         return l;
+    }
+
+    /** Insert preserving an explicit id (for rows pulled from the repo). */
+    public void insertWithId(long id, String url, String title, String source,
+                             String text, long sharedAt, long syncedAt) {
+        ContentValues v = new ContentValues();
+        v.put(C_ID, id);
+        v.put(C_URL, url);
+        v.put(C_TITLE, title);
+        v.put(C_SOURCE, source);
+        v.put(C_TEXT, text);
+        v.put(C_SHARED, sharedAt);
+        v.put(C_SYNCED, syncedAt);
+        v.put(C_STATUS, 1); // came from repo => already synced
+        getWritableDatabase().insert(T, null, v);
+    }
+
+    /**
+     * Reconcile local DB against the repo snapshot (repo = source of truth).
+     *  - delete local rows that are already-synced but no longer in the repo
+     *    (the PC dedup pass removed them);
+     *  - keep local pending/failed rows not in the repo (not uploaded yet);
+     *  - insert repo rows missing locally (added by another path/device).
+     * @return number of local rows deleted.
+     */
+    public int mergeFromRemote(JSONArray remote) {
+        SQLiteDatabase db = getWritableDatabase();
+        java.util.HashSet<Long> remoteIds = new java.util.HashSet<>();
+        for (int i = 0; i < remote.length(); i++) {
+            try {
+                remoteIds.add(remote.getJSONObject(i).getLong("id"));
+            } catch (Exception ignored) {
+            }
+        }
+
+        int deleted = 0;
+        java.util.HashSet<Long> localIds = new java.util.HashSet<>();
+        java.util.List<Link> locals = all(100000);
+        for (Link l : locals) {
+            localIds.add(l.id);
+            boolean synced = l.syncStatus == 1;
+            if (synced && !remoteIds.contains(l.id)) {
+                db.delete(T, C_ID + "=?", new String[]{String.valueOf(l.id)});
+                deleted++;
+            }
+        }
+
+        for (int i = 0; i < remote.length(); i++) {
+            try {
+                org.json.JSONObject o = remote.getJSONObject(i);
+                long id = o.getLong("id");
+                if (localIds.contains(id)) continue;
+                insertWithId(id,
+                        o.optString("url", ""),
+                        o.optString("title", ""),
+                        o.optString("source", ""),
+                        o.optString("text", ""),
+                        o.optLong("shared_at", 0),
+                        o.optLong("synced_at", 0));
+            } catch (Exception ignored) {
+            }
+        }
+        return deleted;
     }
 
     // convenience for the service layer
