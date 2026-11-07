@@ -57,7 +57,24 @@ public class LinkListActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
-        refresh();
+        refresh();        // show local rows instantly
+        pullFromRepo();   // then reconcile against the repo (source of truth)
+    }
+
+    /** Pull the repo snapshot and merge so PC-side dedup is reflected here.
+     *  Runs off the main thread; on any error the local view stays as-is. */
+    private void pullFromRepo() {
+        new Thread(() -> {
+            Cfg g = Cfg.load(this);
+            if (!g.ready()) return;
+            try {
+                org.json.JSONArray remote = Gitee.fetchSnapshot(g);
+                db.mergeFromRemote(remote);
+            } catch (Exception e) {
+                return; // offline / repo error: keep local list
+            }
+            runOnUiThread(this::refresh);
+        }, "dreamlink-pull").start();
     }
 
     @Override
