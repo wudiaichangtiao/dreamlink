@@ -3,7 +3,12 @@ package com.dreamlink.app;
 import android.content.Context;
 import android.content.SharedPreferences;
 
-/** Gitee target + sync switch, kept in app-private prefs. Token never ships in the APK. */
+/**
+ * Gitee target + sync switch, kept in app-private prefs.
+ * First run defaults come from BuildConfig (owner/repo/file baked in; token
+ * injected at cloud build from the GITEE_TOKEN secret, never committed).
+ * Anything the user edits in Settings overrides these and persists locally.
+ */
 public class Cfg {
     private static final String P = "cfg";
     private static final String K_OWNER = "owner";
@@ -19,11 +24,11 @@ public class Cfg {
     public static Cfg load(Context c) {
         SharedPreferences p = c.getSharedPreferences(P, Context.MODE_PRIVATE);
         Cfg g = new Cfg();
-        g.owner = p.getString(K_OWNER, "");
-        g.repo = p.getString(K_REPO, "");
+        g.owner = p.getString(K_OWNER, BuildConfig.DREAMLINK_OWNER);
+        g.repo = p.getString(K_REPO, BuildConfig.DREAMLINK_REPO);
         g.branch = p.getString(K_BRANCH, "master");
-        g.file = p.getString(K_FILE, "dreamlink/links.json");
-        g.token = p.getString(K_TOKEN, "");
+        g.file = p.getString(K_FILE, BuildConfig.DREAMLINK_FILE);
+        g.token = p.getString(K_TOKEN, BuildConfig.DREAMLINK_TOKEN);
         g.enabled = p.getBoolean(K_ENABLED, true);
         return g;
     }
