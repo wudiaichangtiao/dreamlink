@@ -3,6 +3,7 @@ package com.dreamlink.app;
 import android.net.Uri;
 import android.util.Base64;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.ByteArrayOutputStream;
@@ -106,6 +107,35 @@ public class Gitee {
 
     static class AuthException extends Exception {
         AuthException(String m) { super(m); }
+    }
+
+    /** Pull the current snapshot array from the repo file. Absent file -> empty.
+     *  Used by the list screen so the tablet treats the repo as the source of
+     *  truth (PC-side dedup is reflected here on open). */
+    static JSONArray fetchSnapshot(Cfg g) throws AuthException, java.io.IOException {
+        String url = contentsUrl(g)
+                + "?access_token=" + Uri.encode(g.token)
+                + "&ref=" + Uri.encode(g.branchOrMaster());
+        Res r = http("GET", url, null);
+        if (r.isNotFound()) return new JSONArray();
+        if (r.isAuthFail()) throw new AuthException("Gitee " + r.code + "：令牌无效或无仓库权限");
+        if (!r.is2xx()) throw new java.io.IOException("读取失败 HTTP " + r.code);
+        String body = r.body == null ? "" : r.body.trim();
+        // "absent file" comes back as an array (the file listing), not an object
+        if (body.startsWith("[")) return new JSONArray();
+        try {
+            JSONObject o = new JSONObject(body);
+            String enc = o.optString("encoding", "");
+            String content = o.optString("content", "");
+            if (content.isEmpty() || !"base64".equals(enc)) return new JSONArray();
+            String json = new String(Base64.decode(content.replaceAll("\\s", ""),
+                    Base64.DEFAULT), UTF8);
+            json = json.trim();
+            if (json.isEmpty()) return new JSONArray();
+            return new JSONArray(json);
+        } catch (org.json.JSONException e) {
+            throw new java.io.IOException("快照解析失败");
+        }
     }
 
     /** Small HTTP helper. bodyJson != null -> PUT/POST with JSON payload. */
