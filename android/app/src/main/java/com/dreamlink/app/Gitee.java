@@ -74,7 +74,8 @@ public class Gitee {
         }
     }
 
-    /** Overwrite the file with json (whole snapshot). */
+    /** Write the file (whole snapshot). Gitee splits create/update: absent
+     *  file => POST (201), existing file => PUT with its sha (200). */
     static void putContent(Cfg g, String json, String commitMessage) throws AuthException, java.io.IOException {
         String sha = shaOrNull(g);
         try {
@@ -83,9 +84,17 @@ public class Gitee {
             body.put("branch", g.branchOrMaster());
             body.put("content", Base64.encodeToString(json.getBytes(UTF8), Base64.NO_WRAP));
             body.put("message", commitMessage);
-            if (sha != null) body.put("sha", sha);
-            Res r = http("PUT", contentsUrl(g), body.toString());
+            String method;
+            if (sha != null) {
+                body.put("sha", sha);      // update existing file
+                method = "PUT";
+            } else {
+                method = "POST";           // create: Gitee rejects PUT without sha
+            }
+            Res r = http(method, contentsUrl(g), body.toString());
             if (r.isAuthFail()) throw new AuthException("Gitee " + r.code + "：令牌无效或无写入权限");
+            // 404 on POST can mean "parent dir missing"; Gitee auto-creates it, so
+            // treat any non-2xx as a real error here.
             if (!r.is2xx()) {
                 String snip = r.body == null ? "" : r.body.substring(0, Math.min(200, r.body.length()));
                 throw new java.io.IOException("上传失败 HTTP " + r.code + " " + snip);
