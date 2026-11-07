@@ -26,4 +26,5 @@
     <string name="toast_saved">已保存设置</string>
     <string name="toast_no_config">请先在设置里填好仓库信息</string>
     <string name="err_no_text">分享内容里没有文本</string>
+    <string name="err_duplicate">该链接已保存过，未重复添加</string>
 </resources>
